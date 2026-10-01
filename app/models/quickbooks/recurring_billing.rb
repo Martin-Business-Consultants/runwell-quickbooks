@@ -10,11 +10,20 @@ module Quickbooks
     attr_reader :engagement
 
     def link = RecurringLink.find_by(engagement: engagement)
+
+    # The Stripe plugin keeps one billing per service; QuickBooks never bills one it holds.
+    def billed_by_stripe?
+      return false unless Runwell::Plugins.enabled?(:stripe_billing) && engagement.respond_to?(:stripe_subscription)
+
+      subscription = engagement.stripe_subscription
+      subscription.present? && subscription.live? && subscription.stripe?
+    end
     def customer = Customer.for(engagement.client)
 
     def blocker
       return "QuickBooks can’t bill yet: #{@connection&.blocker || "it isn’t set up"}." unless @connection&.can_invoice?
       return "Only a service bills on a schedule; invoice fixed-price work instead." unless engagement.recurring?
+      return "This service is billed through Stripe, so QuickBooks won’t bill it too." if billed_by_stripe?
       return "Nothing is approved yet, so there is no amount to bill." unless engagement.approved?
       return "#{engagement.client.name} isn’t linked to a QuickBooks customer. Link it on the client’s page." unless customer
 
