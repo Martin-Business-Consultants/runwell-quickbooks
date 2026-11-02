@@ -7,7 +7,7 @@ module Quickbooks
       params: { status: %w[open overdue all], client_id: "integer", engagement: "string" },
       description: "Invoices mirrored from QuickBooks, newest first. engagement: a ref."
     agent_tool :invoice_work, on: :create, title: "Invoice a work order (in full, or a deposit)",
-      description: "portion full: everything approved and not yet invoiced. portion deposit: percent of the agreed amount, or amount_cents; send_balance_on_close then sends the rest to the same contact when the work order is closed. QuickBooks emails the invoice with its pay link to contact_id.",
+      description: "portion full: everything of the price (set_quickbooks_price) not yet invoiced. portion deposit: percent of the price, or amount_cents; send_balance_on_close then sends the rest to the same contact when the work order is closed. QuickBooks emails the invoice with its pay link to contact_id.",
       params: { invoice: { portion: WorkOrderBilling::PORTIONS, percent: "number", amount_cents: "integer", contact_id: "integer!", send_balance_on_close: "boolean" } },
       confirm: "QuickBooks will create this invoice in your books and email it, with a pay link, to the contact."
 

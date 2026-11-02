@@ -1,8 +1,8 @@
 module Quickbooks
-  # A service tied to a QuickBooks recurring invoice template, so the recurring revenue the
-  # client agreed to is the recurring revenue QuickBooks bills. Runwell keeps the template in
-  # step (an approved revision changes its amount, closing the service stops it); the sync
-  # flags a template someone changed in QuickBooks so it no longer matches what was agreed.
+  # A service tied to a QuickBooks recurring invoice template, so what Runwell says the service
+  # costs (its Price) is what QuickBooks bills. Runwell keeps the template in step (a new price
+  # changes it, closing the service stops it); the sync flags a template someone changed in
+  # QuickBooks so it no longer matches.
   class RecurringLink < ::ApplicationRecord
     self.table_name = "quickbooks_recurring_links"
 
@@ -26,15 +26,15 @@ module Quickbooks
     end
     def label = "#{engagement.ref} recurring invoice"
 
-    # What QuickBooks should hold for this service: the approved amount per period and cadence,
-    # active while the service is open.
+    # What QuickBooks should hold for this service: its price per period and cadence, active
+    # while the service is open.
     def expected
-      version = engagement.current_version
-      interval, every = CADENCES.fetch(version&.cadence.to_s, CADENCES["monthly"])
-      { amount_cents: version&.amount_cents.to_i, interval_type: interval, num_interval: every, active: !engagement.closed? }
+      price = Price.for(engagement)
+      interval, every = CADENCES.fetch(price&.cadence.to_s, CADENCES["monthly"])
+      { amount_cents: price&.amount_cents.to_i, interval_type: interval, num_interval: every, active: !engagement.closed? }
     end
 
-    # Remembers what QuickBooks said and whether it matches what was agreed.
+    # Remembers what QuickBooks said and whether it matches the price set here.
     def observe!(template)
       schedule = template.dig("RecurringInfo", "ScheduleInfo") || {}
       update!(sync_token: template["SyncToken"], name: template.dig("RecurringInfo", "Name"),
@@ -47,8 +47,8 @@ module Quickbooks
     private
       def drift_from(wanted)
         differences = []
-        differences << "QuickBooks bills #{Money.format(amount_cents)}, the client agreed #{Money.format(wanted[:amount_cents])}" if amount_cents != wanted[:amount_cents]
-        differences << "QuickBooks bills #{schedule_label}, the agreement says #{engagement.current_version&.cadence}" if [ interval_type, num_interval.to_i ] != [ wanted[:interval_type], wanted[:num_interval] ]
+        differences << "QuickBooks bills #{Money.format(amount_cents)}, Runwell says #{Money.format(wanted[:amount_cents])}" if amount_cents != wanted[:amount_cents]
+        differences << "QuickBooks bills #{schedule_label}, Runwell says #{Price.for(engagement)&.cadence || "monthly"}" if [ interval_type, num_interval.to_i ] != [ wanted[:interval_type], wanted[:num_interval] ]
         differences << (active ? "the service is closed but QuickBooks still bills it" : "QuickBooks stopped billing an open service") if active != wanted[:active]
         differences.join("; ").presence
       end

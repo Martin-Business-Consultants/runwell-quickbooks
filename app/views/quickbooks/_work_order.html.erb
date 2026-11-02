@@ -2,9 +2,9 @@
 <% billing = Quickbooks::WorkOrderBilling.new(engagement) %>
 <% invoices = billing.invoices.to_a %>
 <% plan = billing.plan %>
-<% if engagement.approved? %>
+<% if billing.price %>
   <p class="txt-small margin-none">
-    Agreed <strong><%= money billing.agreed_cents %></strong> · invoiced <%= money billing.invoiced_cents %> · paid <%= money billing.paid_cents %><% if billing.remaining_cents.positive? %> · <strong><%= money billing.remaining_cents %></strong> to invoice<% end %>
+    Price <strong><%= money billing.agreed_cents %></strong> · invoiced <%= money billing.invoiced_cents %> · paid <%= money billing.paid_cents %><% if billing.remaining_cents.positive? %> · <strong><%= money billing.remaining_cents %></strong> to invoice<% end %>
   </p>
 <% end %>
 
@@ -54,7 +54,7 @@
       <% end %>
       <label class="flex flex-column gap-half">
         <span class="font-weight-bold">Email it to</span>
-        <%= form.select :contact_id, contact_options(contacts, email_only: true), { selected: plan&.contact_id || default_approver(contacts) }, class: "input input--select full-width", required: true %>
+        <%= form.select :contact_id, quickbooks_contact_options(contacts, email_only: true), { selected: plan&.contact_id || quickbooks_default_contact(contacts) }, class: "input input--select full-width", required: true %>
       </label>
       <p class="txt-x-small txt-subtle margin-none">QuickBooks creates the invoice in your books and emails it with a pay link.</p>
       <button type="submit" class="btn btn--link center">Create and send</button>

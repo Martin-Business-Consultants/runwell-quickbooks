@@ -1,7 +1,7 @@
 module Quickbooks
   # A Runwell plugin: QuickBooks Online for money, which the core never holds. Clients link to
-  # customers; services keep a recurring invoice template in step with what the client
-  # approved; fixed-price work is invoiced in full, or a deposit now and the balance on close,
+  # customers; each engagement has a price set here (Price); services keep a recurring invoice
+  # template in step with it; fixed-price work is invoiced in full, or a deposit now and the balance on close,
   # each sent by QuickBooks with its pay button. Invoices and payments are mirrored for the
   # portal and for the Reporting plugin. It owns its tables and extends the core only through
   # Runwell::Plugins, load hooks and "event.runwell".
@@ -20,6 +20,7 @@ module Quickbooks
           resources :engagements, param: :ref, only: [] do
             resources :invoices, only: :create
             resource :recurring, only: %i[create update destroy], controller: "recurring"
+            resource :price, only: :update
           end
         end
       end
@@ -38,13 +39,14 @@ module Quickbooks
         has_many :quickbooks_invoices, class_name: "Quickbooks::Invoice", dependent: :nullify
         has_one :quickbooks_recurring_link, class_name: "Quickbooks::RecurringLink", dependent: :destroy
         has_one :quickbooks_billing_plan, class_name: "Quickbooks::BillingPlan", dependent: :destroy
+        has_one :quickbooks_price, class_name: "Quickbooks::Price", dependent: :destroy
       end
     end
 
     config.to_prepare do
       Runwell::Plugins.register :quickbooks, name: "QuickBooks", version: Quickbooks::VERSION, author: "Runwell",
-        enabled_by_default: false, requires: ">= 2.1.0", homepage: "https://github.com/Martin-Business-Consultants/runwell-quickbooks",
-        description: "Money through QuickBooks Online: keep each service’s recurring invoice in step with what the client approved, invoice work orders in full or as a deposit and balance with a pay link, and show clients their invoices in the portal."
+        enabled_by_default: false, requires: ">= 3.0.0", homepage: "https://github.com/Martin-Business-Consultants/runwell-quickbooks",
+        description: "Money through QuickBooks Online: set what each engagement costs, keep each service’s recurring invoice in step with it, invoice work orders in full or as a deposit and balance with a pay link, and show clients their invoices in the portal."
       Runwell::Plugins.settings :quickbooks, "QuickBooks", -> { quickbooks_settings_path }
       Runwell::Plugins.permission :quickbooks, :manage_billing, name: "Invoice clients and link recurring billing", roles: %w[owner manager]
       Runwell::Plugins.slot :client_panel, :quickbooks, "quickbooks/slots/client_panel"

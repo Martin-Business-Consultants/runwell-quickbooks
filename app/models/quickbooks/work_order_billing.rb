@@ -1,7 +1,7 @@
 module Quickbooks
   # Invoicing a fixed-price engagement (a work order, or a project) from Runwell: all of it at
   # once, or a deposit now and the balance later, each sent by QuickBooks with its pay button.
-  # The amount is what the client approved: the agreement plus every approved change order.
+  # The amount is the price set on its Billing tab (Price), never an agreement's.
   # Every reason it can't be billed is answered before anything is created, so a failure is
   # "nothing happened", never half an invoice.
   class WorkOrderBilling
@@ -15,7 +15,8 @@ module Quickbooks
 
     def customer = @customer ||= Customer.for(engagement.client)
     def invoices = Invoice.billed.where(engagement: engagement).recent
-    def agreed_cents = engagement.agreed_amount_cents
+    def price = @price ||= Price.for(engagement)
+    def agreed_cents = price&.amount_cents.to_i
     def invoiced_cents = invoices.sum(:total_cents)
     def remaining_cents = agreed_cents - invoiced_cents
     def paid_cents = invoices.sum("total_cents - balance_cents")
@@ -25,7 +26,7 @@ module Quickbooks
     def blocker
       return "QuickBooks can’t invoice yet: #{@connection&.blocker || "it isn’t set up"}." unless @connection&.can_invoice?
       return "Only fixed-price work is invoiced here; a service bills through its recurring invoice." if engagement.recurring?
-      return "Nothing is approved yet, so there is nothing to invoice." unless engagement.approved?
+      return "Set what to bill first: the total for this work." unless price
       return "#{engagement.client.name} isn’t linked to a QuickBooks customer. Link it on the client’s page." unless customer
       return "Everything agreed (#{Money.format(agreed_cents)}) has been invoiced." unless remaining_cents.positive?
 
@@ -33,7 +34,7 @@ module Quickbooks
     end
 
     # Creates and sends the invoice. portion: full (everything not yet invoiced) or deposit
-    # (percent of the agreed amount, or amount_cents). With a deposit, send_balance_on_close
+    # (percent of the price, or amount_cents). With a deposit, send_balance_on_close
     # arms the balance to go to the same contact when the engagement is closed.
     def invoice!(portion:, contact:, percent: nil, amount_cents: nil, send_balance_on_close: false, actor: Current.user)
       raise ArgumentError, blocker if blocker
@@ -74,12 +75,9 @@ module Quickbooks
     private
       def title = "#{engagement.ref} #{engagement.title}"
 
-      # The approved items when nothing has been invoiced; else one line for what's left.
+      # The whole price when nothing has been invoiced; else one line for what's left.
       def full_lines
-        return [ Lines.line("Balance: #{title}", remaining_cents) ] if invoices.exists?
-
-        engagement.agreed_items.reject { it.price_cents.zero? }.map { Lines.line("#{engagement.ref}: #{it.description}", it.price_cents) }
-          .presence || [ Lines.line(title, remaining_cents) ]
+        [ Lines.line(invoices.exists? ? "Balance: #{title}" : title, remaining_cents) ]
       end
 
       def create_and_send!(lines, kind:, contact:, actor:)

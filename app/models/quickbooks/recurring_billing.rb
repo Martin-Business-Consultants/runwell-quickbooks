@@ -1,7 +1,7 @@
 module Quickbooks
-  # A service's recurring invoice in QuickBooks: made from what the client approved, or an
-  # existing template linked to it, then kept in step as revisions are approved and when the
-  # service closes. QuickBooks sends each invoice itself, to the contact chosen here.
+  # A service's recurring invoice in QuickBooks: made from the price set on its Billing tab
+  # (Price), or an existing template linked to it, then kept in step when that price changes and
+  # when the service closes. QuickBooks sends each invoice itself, to the contact chosen here.
   class RecurringBilling
     def initialize(engagement, connection = Connection.current)
       @engagement, @connection = engagement, connection
@@ -24,13 +24,13 @@ module Quickbooks
       return "QuickBooks can’t bill yet: #{@connection&.blocker || "it isn’t set up"}." unless @connection&.can_invoice?
       return "Only a service bills on a schedule; invoice fixed-price work instead." unless engagement.recurring?
       return "This service is billed through Stripe, so QuickBooks won’t bill it too." if billed_by_stripe?
-      return "Nothing is approved yet, so there is no amount to bill." unless engagement.approved?
+      return "Set what to bill first: the amount per period and how often." unless Price.for(engagement)
       return "#{engagement.client.name} isn’t linked to a QuickBooks customer. Link it on the client’s page." unless customer
 
       nil
     end
 
-    # A new template billing the approved amount on the approved cadence from start_on.
+    # A new template billing the price per period on its cadence from start_on.
     def create!(contact:, start_on:, actor: Current.user)
       raise ArgumentError, blocker if blocker
       raise ArgumentError, "This service already has a recurring invoice." if link
@@ -59,8 +59,8 @@ module Quickbooks
       record_link(template, event: "quickbooks.recurring_linked", actor: actor)
     end
 
-    # Makes QuickBooks match the agreement: the approved amount and cadence, and stopped once
-    # the service is closed. Returns the link.
+    # Makes QuickBooks match the price set here: its amount and cadence, and stopped once the
+    # service is closed. Returns the link.
     def push!(actor: nil)
       link = self.link or return
       wanted = link.expected

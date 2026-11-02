@@ -1,0 +1,19 @@
+<%# locals: (engagement:) %>
+<%# What QuickBooks bills this engagement: a fixed-price total, or a service's amount per period. %>
+<% price = Quickbooks::Price.for(engagement) %>
+<%= tag.details class: "txt-align-start", open: price.nil? do %>
+  <summary class="btn txt-small"><%= price ? "Change the price (#{price.label})" : "Set what to bill" %></summary>
+  <%= form_with url: quickbooks_engagement_price_path(engagement), method: :patch, scope: :price, namespace: "qbo_price", class: "flex flex-wrap align-end gap-half txt-small margin-block-start-half" do |form| %>
+    <label class="flex flex-column gap-half flex-item-grow">
+      <span class="font-weight-bold"><%= engagement.recurring? ? "Amount per period" : "Total" %></span>
+      <%= money_field form, :amount_cents, value: price&.amount_cents.to_i, class: "input full-width", required: true, autofocus: price.nil?, placeholder: "1,500.00" %>
+    </label>
+    <% if engagement.recurring? %>
+      <label class="flex flex-column gap-half flex-item-grow">
+        <span class="font-weight-bold">How often</span>
+        <%= form.select :cadence, Quickbooks::Price::CADENCES, { selected: price&.cadence || "monthly" }, class: "input input--select full-width" %>
+      </label>
+    <% end %>
+    <button type="submit" class="btn btn--link">Save</button>
+  <% end %>
+<% end %>

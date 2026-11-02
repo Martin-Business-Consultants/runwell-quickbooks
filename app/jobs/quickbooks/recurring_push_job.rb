@@ -1,5 +1,5 @@
 module Quickbooks
-  # Brings a service's recurring invoice into step with its agreement.
+  # Brings a service's recurring invoice into step with its price.
   class RecurringPushJob < ::ApplicationJob
     queue_as :default
 

@@ -17,7 +17,7 @@ module Quickbooks
       rescue Api::Error => e
         summary["errors"] << "#{customer.client.name}: #{e.message}"
       end
-      RecurringLink.includes(engagement: :agreement_versions).find_each do |link|
+      RecurringLink.includes(:engagement).find_each do |link|
         check(link)
         summary["recurring"] += 1
       rescue Api::Error => e

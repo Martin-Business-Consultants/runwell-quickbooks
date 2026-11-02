@@ -2,6 +2,11 @@
 
 Clients linked to QuickBooks customers, recurring invoices kept in step with services, and fixed-price work invoiced from its panel.
 
+What an engagement costs is set on its Billing tab (or with `set_quickbooks_price`): a fixed-price
+total, or a service's amount per period and how often. It's kept here, apart from agreements, so a
+price written into an agreement is just words there. Upgrading from 0.1 to 0.2 starts each price
+from what the engagement's approved agreements came to.
+
 A plugin for [Runwell](https://github.com/Martin-Business-Consultants/runwellv2), the core of an
 agency's project management. It owns its tables (`quickbooks_*`), points at core records by id, and
 extends Runwell only through its plugin hooks, so removing it leaves Runwell as it was.
@@ -15,7 +20,7 @@ plugin's tables. It starts off: switch it on in Settings > Plugins.
 From the command line on the server: `bin/rails "plugins:install[Martin-Business-Consultants/runwell-quickbooks]"`, then restart
 Runwell.
 
-Needs Runwell 2.1.0 or later. A plugin can use only the gems Runwell bundles.
+Needs Runwell 3.0.0 or later (0.1.1 is the version for Runwell 2.x). A plugin can use only the gems Runwell bundles.
 
 ## Updating
 

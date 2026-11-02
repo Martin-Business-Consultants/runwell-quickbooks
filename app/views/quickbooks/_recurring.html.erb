@@ -19,7 +19,7 @@
     <p class="txt-small txt-negative margin-none"><%= link.drift %>.</p>
   <% end %>
   <div class="flex flex-wrap gap-half justify-center">
-    <%= button_to "Match QuickBooks to the agreement", quickbooks_engagement_recurring_path(engagement), method: :patch, class: "btn txt-x-small" %>
+    <%= button_to "Match QuickBooks to the price", quickbooks_engagement_recurring_path(engagement), method: :patch, class: "btn txt-x-small" %>
     <%= render "layouts/shared/delete_dialog", name: "the link to " + link.name.to_s, path: quickbooks_engagement_recurring_path(engagement), trigger_class: "txt-small",
           message: "Only unlinks it here. QuickBooks keeps billing until it’s stopped there." %>
   </div>
@@ -27,8 +27,8 @@
   <p class="txt-small txt-subtle margin-none"><%= blocker %></p>
 <% else %>
   <% contacts = engagement.client.contacts.where(archived_at: nil).where.not(email: [ nil, "" ]).order(:name) %>
-  <% version = engagement.current_version %>
-  <p class="txt-small margin-none">Approved: <strong><%= money version.amount_cents %></strong> <%= version.cadence %>. Not billed through QuickBooks yet.</p>
+  <% price = Quickbooks::Price.for(engagement) %>
+  <p class="txt-small margin-none">Price: <strong><%= price.label %></strong>. Not billed through QuickBooks yet.</p>
   <details>
     <summary class="btn btn--link center txt-small"><%= icon_tag "add" %> Create the recurring invoice</summary>
     <%= form_with url: quickbooks_engagement_recurring_path(engagement), scope: :recurring, namespace: "qbo_new_recurring", class: "flex flex-column gap txt-small margin-block-start-half" do |form| %>
@@ -38,9 +38,9 @@
       </label>
       <label class="flex flex-column gap-half">
         <span class="font-weight-bold">Email each invoice to</span>
-        <%= form.select :contact_id, contact_options(contacts, email_only: true), { selected: default_approver(contacts) }, class: "input input--select full-width", required: true %>
+        <%= form.select :contact_id, quickbooks_contact_options(contacts, email_only: true), { selected: quickbooks_default_contact(contacts) }, class: "input input--select full-width", required: true %>
       </label>
-      <p class="txt-x-small txt-subtle margin-none">QuickBooks bills <%= money version.amount_cents %> <%= version.cadence %> and emails it with a pay link. Approved revisions change it; closing the service stops it.</p>
+      <p class="txt-x-small txt-subtle margin-none">QuickBooks bills <%= price.label %> and emails it with a pay link. Changing the price here changes it; closing the service stops it.</p>
       <button type="submit" class="btn btn--link center">Create in QuickBooks</button>
     <% end %>
   </details>
