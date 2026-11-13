@@ -1,4 +1,4 @@
-# Settings > QuickBooks: the agency's Intuit app, signing in to the company, which product or
+# Settings > QuickBooks: the install's own Intuit app, signing in to the company, which product or
 # service stands behind Runwell's invoice lines, and the last sync.
 module Quickbooks
   class SettingsController < ApplicationController

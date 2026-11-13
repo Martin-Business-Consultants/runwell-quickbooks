@@ -5,6 +5,6 @@ module Quickbooks
     before_action { head :not_found unless Runwell::Plugins.enabled?(:quickbooks) }
 
     private
-      def set_engagement = @engagement = ::Engagement.find_by_ref!(params[:engagement_ref])
+      def set_work = @work = ::Work.find_by_ref!(params[:work_ref])
   end
 end

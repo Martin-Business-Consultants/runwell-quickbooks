@@ -1,13 +1,17 @@
 <% @page_title = "Invoices" %>
 <%= render "settings/header", current: :quickbooks %>
-
-<section class="settings">
-  <div class="settings__panel panel shadow txt-align-start">
-    <section class="settings__section flex flex-column gap">
-      <div class="filters margin-block-end">
-        <%= render "layouts/shared/quick_filter", title: "Status", param: :status, options: [ [ "Open", "open" ], [ "Overdue", "overdue" ], [ "All", "all" ] ], current: @status %>
+<%# Every invoice mirrored from QuickBooks (Quickbooks::InvoicesController#index): open ones unless the filter says otherwise. %>
+<div class="settings-page">
+  <section class="settings-section">
+    <header class="settings-section__head">
+      <h2>Invoices</h2>
+      <p class="settings-section__description">Mirrored from QuickBooks every night, or with Sync now.</p>
+      <div class="settings-section__actions">
+        <%= ui :filter, param: :status, label: "Status", value: @status, any: false, options: [ [ "Open", "open" ], [ "Overdue", "overdue" ], [ "All", "all" ] ] %>
       </div>
-      <ul class="settings__scrollable-list">
+    </header>
+    <% if @invoices.any? %>
+      <ul class="qb-list">
         <% @invoices.each do |invoice| %>
           <%# herb:key invoice.id %>
           <li data-filter-target="item">
@@ -15,9 +19,8 @@
           </li>
         <% end %>
       </ul>
-      <% if @invoices.empty? %>
-        <p class="txt-small txt-subtle margin-none">No invoices here.</p>
-      <% end %>
-    </section>
-  </div>
-</section>
+    <% else %>
+      <%= ui :empty, size: :sm, description: "No invoices here." %>
+    <% end %>
+  </section>
+</div>

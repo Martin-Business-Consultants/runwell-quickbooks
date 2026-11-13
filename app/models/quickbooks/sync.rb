@@ -17,11 +17,11 @@ module Quickbooks
       rescue Api::Error => e
         summary["errors"] << "#{customer.client.name}: #{e.message}"
       end
-      RecurringLink.includes(:engagement).find_each do |link|
+      RecurringLink.includes(:work).find_each do |link|
         check(link)
         summary["recurring"] += 1
       rescue Api::Error => e
-        summary["errors"] << "#{link.engagement.ref}: #{e.message}"
+        summary["errors"] << "#{link.work.ref}: #{e.message}"
       end
       @connection.note_sync!(summary)
       summary
@@ -31,21 +31,21 @@ module Quickbooks
     end
 
     # An invoice as QuickBooks returned it, written into the mirror. Runwell's own invoices
-    # carry their engagement in the memo; recurring ones point at their template.
-    def mirror_invoice(payload, client:, kind: nil, engagement: nil)
+    # carry their work in the memo; recurring ones point at their template.
+    def mirror_invoice(payload, client:, kind: nil, work: nil)
       invoice = Invoice.find_or_initialize_by(qbo_id: payload["Id"])
       return invoice if invoice.persisted? && invoice.client_id != client.id
 
-      engagement ||= invoice.engagement || engagement_from(payload)
+      work ||= invoice.work || work_from(payload)
       kind ||= invoice.persisted? ? invoice.kind : (recurring_link(payload) ? "recurring" : "other")
       was_open = invoice.persisted? && invoice.balance_cents.positive?
-      invoice.update!(client: client, engagement: engagement, kind: kind, doc_number: payload["DocNumber"],
+      invoice.update!(client: client, work: work, kind: kind, doc_number: payload["DocNumber"],
         txn_date: date(payload["TxnDate"]), due_on: date(payload["DueDate"]),
         total_cents: Lines.cents(payload["TotalAmt"]), balance_cents: Lines.cents(payload["Balance"]),
         voided: payload["PrivateNote"].to_s.start_with?("Voided"), payment_link: payload["InvoiceLink"].presence || invoice.payment_link,
         sync_token: payload["SyncToken"], synced_at: Time.current)
-      if was_open && invoice.balance_cents <= 0 && engagement
-        engagement.record_event!("quickbooks.paid", source: "quickbooks", payload: { number: invoice.doc_number, amount: Money.format(invoice.total_cents) })
+      if was_open && invoice.balance_cents <= 0 && work
+        work.record_event!("quickbooks.paid", source: "quickbooks", payload: { number: invoice.doc_number, amount: Money.format(invoice.total_cents) })
       end
       invoice
     end
@@ -93,9 +93,9 @@ module Quickbooks
         template ? link.observe!(template) : link.update!(drift: "QuickBooks no longer has this recurring invoice", synced_at: Time.current)
       end
 
-      def engagement_from(payload)
+      def work_from(payload)
         ref = payload["PrivateNote"].to_s[/#{Invoice::MEMO}(\S+)/o, 1]
-        (ref && ::Engagement.find_by(ref: ref)) || recurring_link(payload)&.engagement
+        (ref && ::Work.find_by(ref: ref)) || recurring_link(payload)&.work
       end
 
       def recurring_link(payload)

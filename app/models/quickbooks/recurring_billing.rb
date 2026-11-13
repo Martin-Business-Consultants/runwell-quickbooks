@@ -3,29 +3,29 @@ module Quickbooks
   # (Price), or an existing template linked to it, then kept in step when that price changes and
   # when the service closes. QuickBooks sends each invoice itself, to the contact chosen here.
   class RecurringBilling
-    def initialize(engagement, connection = Connection.current)
-      @engagement, @connection = engagement, connection
+    def initialize(work, connection = Connection.current)
+      @work, @connection = work, connection
     end
 
-    attr_reader :engagement
+    attr_reader :work
 
-    def link = RecurringLink.find_by(engagement: engagement)
+    def link = RecurringLink.find_by(work: work)
 
     # The Stripe plugin keeps one billing per service; QuickBooks never bills one it holds.
     def billed_by_stripe?
-      return false unless Runwell::Plugins.enabled?(:stripe_billing) && engagement.respond_to?(:stripe_subscription)
+      return false unless Runwell::Plugins.enabled?(:stripe_billing) && work.respond_to?(:stripe_subscription)
 
-      subscription = engagement.stripe_subscription
+      subscription = work.stripe_subscription
       subscription.present? && subscription.live? && subscription.stripe?
     end
-    def customer = Customer.for(engagement.client)
+    def customer = Customer.for(work.client)
 
     def blocker
       return "QuickBooks can’t bill yet: #{@connection&.blocker || "it isn’t set up"}." unless @connection&.can_invoice?
-      return "Only a service bills on a schedule; invoice fixed-price work instead." unless engagement.recurring?
+      return "Only a service bills on a schedule; invoice fixed-price work instead." unless work.recurring?
       return "This service is billed through Stripe, so QuickBooks won’t bill it too." if billed_by_stripe?
-      return "Set what to bill first: the amount per period and how often." unless Price.for(engagement)
-      return "#{engagement.client.name} isn’t linked to a QuickBooks customer. Link it on the client’s page." unless customer
+      return "Set what to bill first: the amount per period and how often." unless Price.for(work)
+      return "#{work.client.name} isn’t linked to a QuickBooks customer. Link it on the client’s page." unless customer
 
       nil
     end
@@ -36,12 +36,12 @@ module Quickbooks
       raise ArgumentError, "This service already has a recurring invoice." if link
       raise ArgumentError, "Choose a contact with an email address for the invoices." if contact&.email.blank?
 
-      wanted = RecurringLink.new(engagement: engagement).expected
+      wanted = RecurringLink.new(work: work).expected
       template = api.save_recurring_template(
-        "RecurringInfo" => { "Name" => "#{engagement.ref} #{engagement.title}".truncate(100), "RecurType" => "Automated", "Active" => true,
+        "RecurringInfo" => { "Name" => "#{work.ref} #{work.title}".truncate(100), "RecurType" => "Automated", "Active" => true,
           "ScheduleInfo" => schedule(start_on.to_date, wanted) },
         "CustomerRef" => { "value" => customer.qbo_id }, "Line" => [ Lines.line(line_text, wanted[:amount_cents]) ],
-        "BillEmail" => { "Address" => contact.email }, "EmailStatus" => "NeedToSend", "PrivateNote" => "#{Invoice::MEMO}#{engagement.ref}",
+        "BillEmail" => { "Address" => contact.email }, "EmailStatus" => "NeedToSend", "PrivateNote" => "#{Invoice::MEMO}#{work.ref}",
         "AllowOnlineACHPayment" => true, "AllowOnlineCreditCardPayment" => true
       )
       record_link(template, contact: contact, event: "quickbooks.recurring_created", actor: actor)
@@ -54,7 +54,7 @@ module Quickbooks
 
       template = api.recurring_template(qbo_id.to_s.strip) or raise ArgumentError, "QuickBooks has no recurring invoice #{qbo_id}."
       unless template.dig("CustomerRef", "value") == customer.qbo_id
-        raise ArgumentError, "That recurring invoice bills #{template.dig("CustomerRef", "name")}, not #{engagement.client.name}."
+        raise ArgumentError, "That recurring invoice bills #{template.dig("CustomerRef", "name")}, not #{work.client.name}."
       end
       record_link(template, event: "quickbooks.recurring_linked", actor: actor)
     end
@@ -73,13 +73,13 @@ module Quickbooks
       link.observe!(saved)
       link.update!(pushed_at: Time.current)
       change = wanted[:active] ? "quickbooks.recurring_updated" : "quickbooks.recurring_stopped"
-      engagement.record_event!(change, actor: actor, payload: { amount: Money.format(wanted[:amount_cents]), schedule: link.schedule_label })
+      work.record_event!(change, actor: actor, payload: { amount: Money.format(wanted[:amount_cents]), schedule: link.schedule_label })
       link
     end
 
     private
       def api = @api ||= Api.new(@connection)
-      def line_text = "#{engagement.ref} #{engagement.title}"
+      def line_text = "#{work.ref} #{work.title}"
 
       def schedule(start_on, wanted)
         info = { "StartDate" => start_on.iso8601, "IntervalType" => wanted[:interval_type], "NumInterval" => wanted[:num_interval] }
@@ -87,9 +87,9 @@ module Quickbooks
       end
 
       def record_link(template, event:, actor:, contact: nil)
-        link = RecurringLink.create!(engagement: engagement, contact: contact, qbo_id: template["Id"])
+        link = RecurringLink.create!(work: work, contact: contact, qbo_id: template["Id"])
         link.observe!(template)
-        engagement.record_event!(event, actor: actor, payload: { name: link.name, amount: Money.format(link.amount_cents), schedule: link.schedule_label })
+        work.record_event!(event, actor: actor, payload: { name: link.name, amount: Money.format(link.amount_cents), schedule: link.schedule_label })
         link
       end
   end

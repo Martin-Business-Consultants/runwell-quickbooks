@@ -1,12 +1,11 @@
 <%# locals: (client:) %>
-<%# The client's open invoices, each with QuickBooks' pay page. %>
-<% invoices = client.quickbooks_invoices.open.includes(:engagement).order(:due_on).to_a %>
+<%# The client's open invoices, each with QuickBooks' pay page, in the portal's sidebar (the core
+    puts the :portal_home slots in one card). %>
+<% invoices = client.quickbooks_invoices.open.includes(:work).order(:due_on).to_a %>
 <% if invoices.any? %>
-  <section class="settings__section flex flex-column gap-half">
-    <header>
-      <h2 class="divider">To pay</h2>
-    </header>
-    <ul class="settings__scrollable-list">
+  <section class="qb-portal">
+    <h2 class="qb-portal__title">To pay</h2>
+    <ul class="qb-list">
       <% invoices.each do |invoice| %>
         <%# herb:key invoice.id %>
         <li>

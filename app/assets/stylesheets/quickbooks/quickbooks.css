@@ -1,0 +1,50 @@
+/* tokens: runeui */
+/* QuickBooks: the Billing card on a piece of work, the QuickBooks card on a client, the invoices in
+   the portal and on the Invoices page, and the settings page. runeui's tokens only (shadcn's names
+   and --ui-*; docs/theming.md). */
+.qb-card > [data-slot="card-content"] { display: flex; flex-direction: column; align-items: stretch; gap: .75rem; min-width: 0; }
+.qb-line { margin: 0; font-size: var(--ui-text-sm); }
+.qb-muted { margin: 0; color: var(--muted-foreground); font-size: var(--ui-text-sm); }
+
+/* A list of invoices: one row each, what it is on the left, its status and pay link on the right. */
+.qb-list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.qb-list > li + li { border-top: 1px solid var(--border); }
+.qb-list > li { padding-block: .625rem; }
+.qb-list > li:first-child { padding-top: 0; }
+.qb-list > li:last-child { padding-bottom: 0; }
+.qb-invoice { display: flex; align-items: center; gap: .75rem; min-width: 0; font-size: var(--ui-text-sm); }
+.qb-invoice__body { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+.qb-invoice__title, .qb-invoice__meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qb-invoice__title strong { font-weight: 500; }
+.qb-invoice__title .qb-muted { font-size: inherit; }
+.qb-invoice__meta { color: var(--muted-foreground); font-size: var(--ui-text-xs); }
+.qb-invoice__end { display: flex; flex: none; align-items: center; gap: .5rem; }
+
+/* A form opened in place (a <details> whose summary is a button), and the forms themselves. */
+.qb-actions { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: flex-end; gap: .5rem; }
+.qb-actions--start { justify-content: flex-start; }
+.qb-actions--start > .record-add { flex: none; }
+.qb-actions--start > .record-add[open] { flex: 1 1 100%; }
+/* Open, the form runs the card's width (Chrome boxes a <details>' content, which would shrink to fit). */
+.qb-add[open]::details-content { align-self: stretch; }
+.qb-inline { display: flex; flex-direction: row; }
+.qb-form { display: flex; flex-direction: column; gap: .75rem; width: 100%; }
+.qb-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr)); gap: .75rem; }
+.qb-choices { display: flex; flex-direction: column; gap: .5rem; }
+.qb-choice { display: flex; align-items: center; gap: .5rem; font-size: var(--ui-text-sm); cursor: pointer; }
+.qb-choice input { margin: 0; accent-color: var(--primary); }
+
+/* Settings: where the connection stands, and a sync's errors. */
+.qb-status { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; font-size: var(--ui-text-sm); }
+.qb-errors { margin: 0; padding-left: 1rem; }
+
+/* The portal: a work's invoices, and what's to pay, inside the core's card for plugins. Its sidebar
+   is narrow, so an invoice's lines wrap rather than cut short. */
+.qb-portal { display: flex; flex-direction: column; gap: .75rem; }
+/* After another plugin's part of the same card, a rule between them. */
+* + .qb-portal { padding-top: 1rem; border-top: 1px solid var(--border); }
+.qb-portal__title { margin: 0; font-size: var(--ui-text-sm); font-weight: 600; }
+.qb-portal :is(.qb-invoice__title, .qb-invoice__meta) { white-space: normal; }
+
+/* QuickBooks' errors can be long unbroken JSON: they wrap inside the alert rather than overflow it. */
+.qb-alert { overflow-wrap: anywhere; }

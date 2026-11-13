@@ -3,12 +3,12 @@ module Quickbooks
   class RecurringPushJob < ::ApplicationJob
     queue_as :default
 
-    def perform(engagement_id)
-      engagement = ::Engagement.find(engagement_id)
+    def perform(work_id)
+      work = ::Work.find(work_id)
       Current.source = "quickbooks"
-      RecurringBilling.new(engagement).push!
+      RecurringBilling.new(work).push!
     rescue Api::Error, ArgumentError => e
-      RecurringLink.find_by(engagement_id: engagement_id)&.update!(drift: "Couldn’t update QuickBooks: #{e.message}".truncate(250))
+      RecurringLink.find_by(work_id: work_id)&.update!(drift: "Couldn’t update QuickBooks: #{e.message}".truncate(250))
     end
   end
 end

@@ -6,5 +6,5 @@ json.invoices @invoices do |invoice|
   json.total money(invoice.total_cents)
   json.balance money(invoice.balance_cents)
   json.client agent_ref(invoice.client)
-  json.engagement agent_ref(invoice.engagement)
+  json.work agent_ref(invoice.work)
 end

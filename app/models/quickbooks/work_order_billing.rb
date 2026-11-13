@@ -1,5 +1,5 @@
 module Quickbooks
-  # Invoicing a fixed-price engagement (a work order, or a project) from Runwell: all of it at
+  # Invoicing a fixed-price work (a work order, or a project) from Runwell: all of it at
   # once, or a deposit now and the balance later, each sent by QuickBooks with its pay button.
   # The amount is the price set on its Billing tab (Price), never an agreement's.
   # Every reason it can't be billed is answered before anything is created, so a failure is
@@ -7,27 +7,27 @@ module Quickbooks
   class WorkOrderBilling
     PORTIONS = %w[full deposit].freeze
 
-    def initialize(engagement, connection = Connection.current)
-      @engagement, @connection = engagement, connection
+    def initialize(work, connection = Connection.current)
+      @work, @connection = work, connection
     end
 
-    attr_reader :engagement
+    attr_reader :work
 
-    def customer = @customer ||= Customer.for(engagement.client)
-    def invoices = Invoice.billed.where(engagement: engagement).recent
-    def price = @price ||= Price.for(engagement)
+    def customer = @customer ||= Customer.for(work.client)
+    def invoices = Invoice.billed.where(work: work).recent
+    def price = @price ||= Price.for(work)
     def agreed_cents = price&.amount_cents.to_i
     def invoiced_cents = invoices.sum(:total_cents)
     def remaining_cents = agreed_cents - invoiced_cents
     def paid_cents = invoices.sum("total_cents - balance_cents")
-    def plan = BillingPlan.find_by(engagement: engagement)
+    def plan = BillingPlan.find_by(work: work)
 
     # Why nothing can be invoiced now, or nil.
     def blocker
       return "QuickBooks can’t invoice yet: #{@connection&.blocker || "it isn’t set up"}." unless @connection&.can_invoice?
-      return "Only fixed-price work is invoiced here; a service bills through its recurring invoice." if engagement.recurring?
+      return "Only fixed-price work is invoiced here; a service bills through its recurring invoice." if work.recurring?
       return "Set what to bill first: the total for this work." unless price
-      return "#{engagement.client.name} isn’t linked to a QuickBooks customer. Link it on the client’s page." unless customer
+      return "#{work.client.name} isn’t linked to a QuickBooks customer. Link it on the client’s page." unless customer
       return "Everything agreed (#{Money.format(agreed_cents)}) has been invoiced." unless remaining_cents.positive?
 
       nil
@@ -35,12 +35,12 @@ module Quickbooks
 
     # Creates and sends the invoice. portion: full (everything not yet invoiced) or deposit
     # (percent of the price, or amount_cents). With a deposit, send_balance_on_close
-    # arms the balance to go to the same contact when the engagement is closed.
+    # arms the balance to go to the same contact when the work is closed.
     def invoice!(portion:, contact:, percent: nil, amount_cents: nil, send_balance_on_close: false, actor: Current.user)
       raise ArgumentError, blocker if blocker
       raise ArgumentError, "Choose full or deposit." unless PORTIONS.include?(portion)
       raise ArgumentError, "Choose a contact with an email address to send it to." if contact&.email.blank?
-      raise ArgumentError, "That contact isn’t #{engagement.client.name}’s." unless contact.client_id == engagement.client_id
+      raise ArgumentError, "That contact isn’t #{work.client.name}’s." unless contact.client_id == work.client_id
 
       if portion == "deposit"
         raise ArgumentError, "A deposit comes first: this has already been invoiced." if invoices.exists?
@@ -50,7 +50,7 @@ module Quickbooks
 
         share = (cents * 100.0 / agreed_cents).round
         invoice = create_and_send!([ Lines.line("Deposit (#{share}%): #{title}", cents) ], kind: "deposit", contact: contact, actor: actor)
-        BillingPlan.find_or_initialize_by(engagement: engagement)
+        BillingPlan.find_or_initialize_by(work: work)
           .update!(deposit_invoice: invoice, contact: contact, send_balance_on_close: send_balance_on_close, last_error: nil)
         invoice
       else
@@ -73,7 +73,7 @@ module Quickbooks
     end
 
     private
-      def title = "#{engagement.ref} #{engagement.title}"
+      def title = "#{work.ref} #{work.title}"
 
       # The whole price when nothing has been invoiced; else one line for what's left.
       def full_lines
@@ -84,14 +84,14 @@ module Quickbooks
         api = Api.new(@connection)
         created = api.create_invoice(
           "CustomerRef" => { "value" => customer.qbo_id }, "TxnDate" => Date.current.iso8601, "Line" => lines,
-          "BillEmail" => { "Address" => contact.email }, "PrivateNote" => "#{Invoice::MEMO}#{engagement.ref}",
+          "BillEmail" => { "Address" => contact.email }, "PrivateNote" => "#{Invoice::MEMO}#{work.ref}",
           "AllowOnlineACHPayment" => true, "AllowOnlineCreditCardPayment" => true
         )
         api.send_invoice(created["Id"], to: contact.email)
         full = api.invoice(created["Id"]) || created
-        invoice = Sync.new(@connection, api).mirror_invoice(full, client: engagement.client, kind: kind, engagement: engagement)
+        invoice = Sync.new(@connection, api).mirror_invoice(full, client: work.client, kind: kind, work: work)
         invoice.update!(created_by: actor, sent_to: contact.email, sent_at: Time.current)
-        engagement.record_event!("quickbooks.invoiced", actor: actor, payload: { kind: kind, amount: Money.format(invoice.total_cents), number: invoice.doc_number, to: contact.name })
+        work.record_event!("quickbooks.invoiced", actor: actor, payload: { kind: kind, amount: Money.format(invoice.total_cents), number: invoice.doc_number, to: contact.name })
         invoice
       end
   end

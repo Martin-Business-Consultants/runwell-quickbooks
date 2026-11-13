@@ -1,54 +1,63 @@
-<%# locals: (engagement:) %>
-<% billing = Quickbooks::RecurringBilling.new(engagement) %>
+<%# locals: (work:) %>
+<%# A service: its recurring invoice in QuickBooks (kept in step with the price), or making or
+    linking one. %>
+<% billing = Quickbooks::RecurringBilling.new(work) %>
 <% link = billing.link %>
 <% blocker = link ? nil : billing.blocker %>
 <% if link %>
-  <div class="flex align-center gap-half txt-small">
-    <div class="txt-align-start overflow-ellipsis min-width">
-      <strong><%= link.name %></strong>
-      <div class="txt-x-small txt-subtle"><%= money link.amount_cents %> <%= link.schedule_label %><%= " · next " + l(link.next_on, format: :short) if link.next_on && link.active %><%= " · to " + link.contact.name if link.contact %><%= " · checked " + time_ago_in_words(link.synced_at) + " ago" if link.synced_at %></div>
+  <div class="qb-invoice">
+    <div class="qb-invoice__body">
+      <span class="qb-invoice__title"><strong><%= link.name %></strong></span>
+      <span class="qb-invoice__meta"><%= money link.amount_cents %> <%= link.schedule_label %><%= " · next " + l(link.next_on, format: :short) if link.next_on && link.active %><%= " · to " + link.contact.name if link.contact %><%= " · checked " + time_ago_in_words(link.synced_at) + " ago" if link.synced_at %></span>
     </div>
-    <hr class="separator--horizontal flex-item-grow txt-subtle" aria-hidden="true">
-    <% if link.in_sync? %>
-      <%= status_tag link.active ? "Active" : "Closed" %>
-    <% else %>
-      <%= status_tag "Blocked" %>
-    <% end %>
+    <span class="qb-invoice__end">
+      <% if link.in_sync? %>
+        <%= status_tag link.active ? "Active" : "Closed" %>
+      <% else %>
+        <%= status_tag "Blocked" %>
+      <% end %>
+    </span>
   </div>
   <% unless link.in_sync? %>
-    <p class="txt-small txt-negative margin-none"><%= link.drift %>.</p>
+    <%= ui :alert, variant: :destructive, description: "#{link.drift}.", class: "qb-alert" %>
   <% end %>
-  <div class="flex flex-wrap gap-half justify-center">
-    <%= button_to "Match QuickBooks to the price", quickbooks_engagement_recurring_path(engagement), method: :patch, class: "btn txt-x-small" %>
-    <%= render "layouts/shared/delete_dialog", name: "the link to " + link.name.to_s, path: quickbooks_engagement_recurring_path(engagement), trigger_class: "txt-small",
+  <div class="qb-actions qb-actions--start">
+    <%= button_to quickbooks_work_recurring_path(work), method: :patch, class: "ui-button", data: { variant: "outline", size: "sm" }, form_class: "qb-inline" do %>
+      <%= icon_tag "refresh" %> <span>Match QuickBooks to the price</span>
+    <% end %>
+    <%= render "layouts/shared/delete_dialog", name: "the link to " + link.name.to_s, path: quickbooks_work_recurring_path(work),
           message: "Only unlinks it here. QuickBooks keeps billing until it’s stopped there." %>
   </div>
 <% elsif blocker %>
-  <p class="txt-small txt-subtle margin-none"><%= blocker %></p>
+  <p class="qb-muted"><%= blocker %></p>
 <% else %>
-  <% contacts = engagement.client.contacts.where(archived_at: nil).where.not(email: [ nil, "" ]).order(:name) %>
-  <% price = Quickbooks::Price.for(engagement) %>
-  <p class="txt-small margin-none">Price: <strong><%= price.label %></strong>. Not billed through QuickBooks yet.</p>
-  <details>
-    <summary class="btn btn--link center txt-small"><%= icon_tag "add" %> Create the recurring invoice</summary>
-    <%= form_with url: quickbooks_engagement_recurring_path(engagement), scope: :recurring, namespace: "qbo_new_recurring", class: "flex flex-column gap txt-small margin-block-start-half" do |form| %>
-      <label class="flex flex-column gap-half">
-        <span class="font-weight-bold">First invoice on</span>
-        <%= date_input form, :start_on, value: Date.current.next_month.beginning_of_month, class: "input full-width", required: true %>
-      </label>
-      <label class="flex flex-column gap-half">
-        <span class="font-weight-bold">Email each invoice to</span>
-        <%= form.select :contact_id, quickbooks_contact_options(contacts, email_only: true), { selected: quickbooks_default_contact(contacts) }, class: "input input--select full-width", required: true %>
-      </label>
-      <p class="txt-x-small txt-subtle margin-none">QuickBooks bills <%= price.label %> and emails it with a pay link. Changing the price here changes it; closing the service stops it.</p>
-      <button type="submit" class="btn btn--link center">Create in QuickBooks</button>
-    <% end %>
-  </details>
-  <details>
-    <summary class="btn center txt-small">Link an existing recurring invoice</summary>
-    <%= form_with url: quickbooks_engagement_recurring_path(engagement), scope: :recurring, namespace: "qbo_link_recurring", class: "flex flex-column gap txt-small margin-block-start-half" do |form| %>
-      <%= form.text_field :qbo_id, required: true, class: "input full-width", autocomplete: "off", placeholder: "Recurring invoice id in QuickBooks", aria: { label: "Recurring invoice id" } %>
-      <button type="submit" class="btn btn--link center">Link</button>
-    <% end %>
-  </details>
+  <% contacts = work.client.contacts.where(archived_at: nil).where.not(email: [ nil, "" ]).order(:name) %>
+  <% price = Quickbooks::Price.for(work) %>
+  <p class="qb-line">Price: <strong><%= price.label %></strong>. Not billed through QuickBooks yet.</p>
+  <div class="qb-actions qb-actions--start">
+    <details class="record-add qb-add">
+      <summary class="ui-button" data-variant="outline" data-size="sm"><%= icon_tag "add" %> <span>Create the recurring invoice</span></summary>
+      <%= form_with url: quickbooks_work_recurring_path(work), scope: :recurring, namespace: "qbo_new_recurring", class: "qb-form" do |form| %>
+        <div class="qb-fields">
+          <%= form.ui :field, :start_on, label: "First invoice on" do %>
+            <%= date_input form, :start_on, value: Date.current.next_month.beginning_of_month, required: true %>
+          <% end %>
+          <%= form.ui :field, :contact_id, label: "Email each invoice to" do %>
+            <%= form.select :contact_id, quickbooks_contact_options(contacts, email_only: true), { selected: quickbooks_default_contact(contacts) }, required: true %>
+          <% end %>
+        </div>
+        <p class="qb-muted">QuickBooks bills <%= price.label %> and emails it with a pay link. Changing the price here changes it; closing the service stops it.</p>
+        <div class="qb-actions"><%= ui :button, type: :submit, size: :sm, content: "Create in QuickBooks" %></div>
+      <% end %>
+    </details>
+    <details class="record-add qb-add">
+      <summary class="ui-button" data-variant="ghost" data-size="sm">Link an existing recurring invoice</summary>
+      <%= form_with url: quickbooks_work_recurring_path(work), scope: :recurring, namespace: "qbo_link_recurring", class: "qb-form" do |form| %>
+        <%= form.ui :field, :qbo_id, label: "Recurring invoice id in QuickBooks" do %>
+          <%= form.text_field :qbo_id, required: true, autocomplete: "off" %>
+        <% end %>
+        <div class="qb-actions"><%= ui :button, type: :submit, size: :sm, content: "Link" %></div>
+      <% end %>
+    </details>
+  </div>
 <% end %>

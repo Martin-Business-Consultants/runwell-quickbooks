@@ -4,13 +4,13 @@ module Quickbooks
   # too, from Price.set!). The work runs in jobs, after the core's write has committed.
   module Events
     def self.handle(event)
-      return unless Runwell::Plugins.enabled?(:quickbooks) && event.subject.is_a?(::Engagement)
+      return unless Runwell::Plugins.enabled?(:quickbooks) && event.subject.is_a?(::Work)
 
-      engagement = event.subject
+      work = event.subject
       case event.kind
-      when "engagement.closed"
-        BalanceJob.perform_later(engagement.id) if BillingPlan.waiting.exists?(engagement: engagement)
-        RecurringPushJob.perform_later(engagement.id) if RecurringLink.exists?(engagement: engagement)
+      when "work.closed"
+        BalanceJob.perform_later(work.id) if BillingPlan.waiting.exists?(work: work)
+        RecurringPushJob.perform_later(work.id) if RecurringLink.exists?(work: work)
       end
     end
   end

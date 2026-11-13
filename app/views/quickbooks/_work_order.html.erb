@@ -1,63 +1,71 @@
-<%# locals: (engagement:) %>
-<% billing = Quickbooks::WorkOrderBilling.new(engagement) %>
+<%# locals: (work:) %>
+<%# A fixed-price piece of work: what's been invoiced and paid of its price, its invoices, and
+    sending the next one (all of it, or a deposit and the balance on close). %>
+<% billing = Quickbooks::WorkOrderBilling.new(work) %>
 <% invoices = billing.invoices.to_a %>
 <% plan = billing.plan %>
 <% if billing.price %>
-  <p class="txt-small margin-none">
+  <p class="qb-line">
     Price <strong><%= money billing.agreed_cents %></strong> · invoiced <%= money billing.invoiced_cents %> · paid <%= money billing.paid_cents %><% if billing.remaining_cents.positive? %> · <strong><%= money billing.remaining_cents %></strong> to invoice<% end %>
   </p>
 <% end %>
 
-<ul class="settings__scrollable-list">
-  <% invoices.each do |invoice| %>
-    <%# herb:key invoice.id %>
-    <li data-filter-target="item">
-      <%= render "quickbooks/invoice", invoice: invoice %>
-    </li>
-  <% end %>
-</ul>
+<% if invoices.any? %>
+  <ul class="qb-list">
+    <% invoices.each do |invoice| %>
+      <%# herb:key invoice.id %>
+      <li data-filter-target="item">
+        <%= render "quickbooks/invoice", invoice: invoice %>
+      </li>
+    <% end %>
+  </ul>
+<% end %>
 
 <% if plan&.waiting? %>
-  <p class="txt-small margin-none">The balance goes to <%= plan.contact&.name %> when <%= engagement.ref %> is closed.</p>
+  <p class="qb-line">The balance goes to <%= plan.contact&.name %> when <%= work.title %> is closed.</p>
 <% end %>
 <% if plan&.last_error.present? %>
-  <p class="txt-small txt-negative margin-none">The balance couldn’t be sent: <%= plan.last_error %></p>
+  <%= ui :alert, variant: :destructive, title: "The balance couldn’t be sent", description: plan.last_error, class: "qb-alert" %>
 <% end %>
 
 <% blocker = billing.blocker %>
 <% if blocker %>
-  <p class="txt-small txt-subtle margin-none"><%= blocker %></p>
+  <p class="qb-muted"><%= blocker %></p>
 <% else %>
-  <% contacts = engagement.client.contacts.where(archived_at: nil).where.not(email: [ nil, "" ]).order(:name) %>
-  <details>
-    <summary class="btn btn--link center txt-small"><%= icon_tag "email" %> <%= invoices.any? ? "Invoice the rest" : "Send an invoice" %></summary>
-    <%= form_with url: quickbooks_engagement_invoices_path(engagement), scope: :invoice, namespace: "qbo_invoice", class: "flex flex-column gap txt-small margin-block-start-half" do |form| %>
+  <% contacts = work.client.contacts.where(archived_at: nil).where.not(email: [ nil, "" ]).order(:name) %>
+  <details class="record-add qb-add">
+    <summary class="ui-button" data-variant="outline" data-size="sm"><%= icon_tag "email" %> <span><%= invoices.any? ? "Invoice the rest" : "Send an invoice" %></span></summary>
+    <%= form_with url: quickbooks_work_invoices_path(work), scope: :invoice, namespace: "qbo_invoice", class: "qb-form" do |form| %>
       <% if invoices.empty? %>
-        <label class="flex align-center gap-half">
-          <%= form.radio_button :portion, "full", checked: true %>
-          <span>All of it: <%= money billing.remaining_cents %></span>
-        </label>
-        <label class="flex align-center gap-half">
-          <%= form.radio_button :portion, "deposit" %>
-          <span>A deposit now, the balance later</span>
-        </label>
-        <div class="flex flex-wrap gap-half">
-          <%= form.number_field :percent, value: 50, min: 1, max: 99, class: "input flex-item-grow", aria: { label: "Deposit percent" }, placeholder: "%" %>
-          <%= money_field form, :amount_cents, value: 0, class: "input flex-item-grow", placeholder: "or an amount", aria: { label: "Deposit amount" } %>
+        <div class="qb-choices">
+          <label class="qb-choice">
+            <%= form.radio_button :portion, "full", checked: true %>
+            <span>All of it: <%= money billing.remaining_cents %></span>
+          </label>
+          <label class="qb-choice">
+            <%= form.radio_button :portion, "deposit" %>
+            <span>A deposit now, the balance later</span>
+          </label>
         </div>
-        <label class="flex align-center gap-half">
+        <div class="qb-fields">
+          <%= form.ui :field, :percent, label: "Deposit percent" do %>
+            <%= form.number_field :percent, value: 50, min: 1, max: 99, placeholder: "%" %>
+          <% end %>
+          <%= form.ui :field, :amount_cents, label: "Or an amount" do %>
+            <%= money_field form, :amount_cents, value: 0, placeholder: "0.00" %>
+          <% end %>
+        </div>
+        <label class="qb-choice">
           <%= form.check_box :send_balance_on_close, checked: true %>
-          <span>Send the balance when <%= engagement.ref %> is closed</span>
+          <span>Send the balance when <%= work.title %> is closed</span>
         </label>
       <% else %>
         <%= form.hidden_field :portion, value: "full" %>
       <% end %>
-      <label class="flex flex-column gap-half">
-        <span class="font-weight-bold">Email it to</span>
-        <%= form.select :contact_id, quickbooks_contact_options(contacts, email_only: true), { selected: plan&.contact_id || quickbooks_default_contact(contacts) }, class: "input input--select full-width", required: true %>
-      </label>
-      <p class="txt-x-small txt-subtle margin-none">QuickBooks creates the invoice in your books and emails it with a pay link.</p>
-      <button type="submit" class="btn btn--link center">Create and send</button>
+      <%= form.ui :field, :contact_id, label: "Email it to", description: "QuickBooks creates the invoice in your books and emails it with a pay link." do %>
+        <%= form.select :contact_id, quickbooks_contact_options(contacts, email_only: true), { selected: plan&.contact_id || quickbooks_default_contact(contacts) }, required: true %>
+      <% end %>
+      <div class="qb-actions"><%= ui :button, type: :submit, size: :sm, content: "Create and send" %></div>
     <% end %>
   </details>
 <% end %>

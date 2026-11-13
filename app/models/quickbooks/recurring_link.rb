@@ -8,11 +8,11 @@ module Quickbooks
 
     CADENCES = { "weekly" => [ "Weekly", 1 ], "monthly" => [ "Monthly", 1 ], "quarterly" => [ "Monthly", 3 ] }.freeze
 
-    belongs_to :engagement, class_name: "::Engagement"
+    belongs_to :work, class_name: "::Work"
     belongs_to :contact, class_name: "::Contact", optional: true
 
     validates :qbo_id, presence: true
-    validates :engagement_id, uniqueness: { message: "already has a recurring invoice" }
+    validates :work_id, uniqueness: { message: "already has a recurring invoice" }
 
     scope :drifting, -> { where.not(drift: nil) }
 
@@ -24,14 +24,14 @@ module Quickbooks
       unit = UNITS[interval_type] or return nil
       num_interval.to_i > 1 ? "every #{num_interval} #{unit.pluralize}" : "every #{unit}"
     end
-    def label = "#{engagement.ref} recurring invoice"
+    def label = "#{work.ref} recurring invoice"
 
     # What QuickBooks should hold for this service: its price per period and cadence, active
     # while the service is open.
     def expected
-      price = Price.for(engagement)
+      price = Price.for(work)
       interval, every = CADENCES.fetch(price&.cadence.to_s, CADENCES["monthly"])
-      { amount_cents: price&.amount_cents.to_i, interval_type: interval, num_interval: every, active: !engagement.closed? }
+      { amount_cents: price&.amount_cents.to_i, interval_type: interval, num_interval: every, active: !work.closed? }
     end
 
     # Remembers what QuickBooks said and whether it matches the price set here.
@@ -48,7 +48,7 @@ module Quickbooks
       def drift_from(wanted)
         differences = []
         differences << "QuickBooks bills #{Money.format(amount_cents)}, Runwell says #{Money.format(wanted[:amount_cents])}" if amount_cents != wanted[:amount_cents]
-        differences << "QuickBooks bills #{schedule_label}, Runwell says #{Price.for(engagement)&.cadence || "monthly"}" if [ interval_type, num_interval.to_i ] != [ wanted[:interval_type], wanted[:num_interval] ]
+        differences << "QuickBooks bills #{schedule_label}, Runwell says #{Price.for(work)&.cadence || "monthly"}" if [ interval_type, num_interval.to_i ] != [ wanted[:interval_type], wanted[:num_interval] ]
         differences << (active ? "the service is closed but QuickBooks still bills it" : "QuickBooks stopped billing an open service") if active != wanted[:active]
         differences.join("; ").presence
       end

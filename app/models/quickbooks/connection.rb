@@ -1,6 +1,6 @@
 module Quickbooks
-  # The agency's connection to one QuickBooks company (one row). Two halves that arrive at
-  # different times: the credentials of the agency's own Intuit app, pasted into Settings >
+  # The install's connection to one QuickBooks company (one row). Two halves that arrive at
+  # different times: the credentials of the install's own Intuit app, pasted into Settings >
   # QuickBooks, then after Intuit's consent screen the tokens and the realm id that say which
   # company file this is.
   class Connection < ::ApplicationRecord

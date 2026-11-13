@@ -1,19 +1,19 @@
-<%# locals: (engagement:) %>
-<%# What QuickBooks bills this engagement: a fixed-price total, or a service's amount per period. %>
-<% price = Quickbooks::Price.for(engagement) %>
-<%= tag.details class: "txt-align-start", open: price.nil? do %>
-  <summary class="btn txt-small"><%= price ? "Change the price (#{price.label})" : "Set what to bill" %></summary>
-  <%= form_with url: quickbooks_engagement_price_path(engagement), method: :patch, scope: :price, namespace: "qbo_price", class: "flex flex-wrap align-end gap-half txt-small margin-block-start-half" do |form| %>
-    <label class="flex flex-column gap-half flex-item-grow">
-      <span class="font-weight-bold"><%= engagement.recurring? ? "Amount per period" : "Total" %></span>
-      <%= money_field form, :amount_cents, value: price&.amount_cents.to_i, class: "input full-width", required: true, autofocus: price.nil?, placeholder: "1,500.00" %>
-    </label>
-    <% if engagement.recurring? %>
-      <label class="flex flex-column gap-half flex-item-grow">
-        <span class="font-weight-bold">How often</span>
-        <%= form.select :cadence, Quickbooks::Price::CADENCES, { selected: price&.cadence || "monthly" }, class: "input input--select full-width" %>
-      </label>
-    <% end %>
-    <button type="submit" class="btn btn--link">Save</button>
+<%# locals: (work:) %>
+<%# What QuickBooks bills this work: a fixed-price total, or a service's amount per period. %>
+<% price = Quickbooks::Price.for(work) %>
+<%= tag.details class: "record-add qb-add", open: price.nil? do %>
+  <summary class="ui-button" data-variant="outline" data-size="sm"><%= icon_tag(price ? "pencil" : "add") %> <span><%= price ? "Change the price (#{price.label})" : "Set what to bill" %></span></summary>
+  <%= form_with url: quickbooks_work_price_path(work), method: :patch, scope: :price, namespace: "qbo_price", class: "qb-form" do |form| %>
+    <div class="qb-fields">
+      <%= form.ui :field, :amount_cents, label: work.recurring? ? "Amount per period" : "Total" do %>
+        <%= money_field form, :amount_cents, value: price&.amount_cents.to_i, required: true, autofocus: price.nil?, placeholder: "1,500.00" %>
+      <% end %>
+      <% if work.recurring? %>
+        <%= form.ui :field, :cadence, label: "How often" do %>
+          <%= form.select :cadence, Quickbooks::Price::CADENCES, { selected: price&.cadence || "monthly" } %>
+        <% end %>
+      <% end %>
+    </div>
+    <div class="qb-actions"><%= ui :button, type: :submit, size: :sm, content: "Save" %></div>
   <% end %>
 <% end %>

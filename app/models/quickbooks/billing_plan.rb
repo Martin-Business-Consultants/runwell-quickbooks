@@ -4,7 +4,7 @@ module Quickbooks
   class BillingPlan < ::ApplicationRecord
     self.table_name = "quickbooks_billing_plans"
 
-    belongs_to :engagement, class_name: "::Engagement"
+    belongs_to :work, class_name: "::Work"
     belongs_to :contact, class_name: "::Contact", optional: true
     belongs_to :deposit_invoice, class_name: "Quickbooks::Invoice", optional: true
     belongs_to :balance_invoice, class_name: "Quickbooks::Invoice", optional: true

@@ -1,0 +1,15 @@
+<%# locals: (work:) %>
+<%# The QuickBooks tab on each piece of work (the :work_panel slot): what QuickBooks bills, then a
+    service's recurring invoice or a fixed-price piece of work's invoices. %>
+<% if can?(:manage_billing) %>
+  <%= record_card "Billing", id: "billing", css: "qb-card", hint: work.recurring? ? "What QuickBooks bills #{work.title} each period, through a recurring invoice." : "What QuickBooks bills #{work.title}, and the invoices sent for it." do %>
+    <%= render "quickbooks/price", work: work %>
+    <% if work.recurring? %>
+      <%= render "quickbooks/recurring", work: work %>
+    <% else %>
+      <%= render "quickbooks/work_order", work: work %>
+    <% end %>
+  <% end %>
+<% else %>
+  <%= ui :empty, size: :sm, description: "Billing is for people who invoice clients." %>
+<% end %>

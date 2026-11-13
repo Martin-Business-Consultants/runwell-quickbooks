@@ -1,0 +1,16 @@
+<%# locals: (work:) %>
+<%# This work's invoices in the portal (inside the core's card), each with QuickBooks' pay page. %>
+<% invoices = work.quickbooks_invoices.live.recent.to_a %>
+<% if invoices.any? %>
+  <section class="qb-portal">
+    <h2 class="qb-portal__title">Invoices</h2>
+    <ul class="qb-list">
+      <% invoices.each do |invoice| %>
+        <%# herb:key invoice.id %>
+        <li>
+          <%= render "quickbooks/invoice", invoice: invoice, pay: true %>
+        </li>
+      <% end %>
+    </ul>
+  </section>
+<% end %>
